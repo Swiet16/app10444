@@ -11,35 +11,59 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-/* ── Mashreq-inspired Leaf SVG ────────────────────── */
+/* ── Animated Leaf SVG Background ────────────────── */
 function LeafDecoration() {
   return (
-    <svg viewBox="0 0 420 560" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute inset-0 w-full h-full">
-      {/* Large back leaf – deep orange-red */}
-      <path
-        d="M210 520 C90 480 20 360 30 200 C40 80 120 20 210 10 C300 20 380 80 390 200 C400 360 330 480 210 520Z"
-        fill="url(#leaf1)"
-        opacity="0.18"
-      />
-      {/* Front leaf – bright orange, rotated */}
-      <path
-        d="M170 500 C60 450 10 330 30 170 C50 40 140 -20 220 20 C290 55 340 150 330 280 C318 400 270 480 170 500Z"
-        fill="url(#leaf2)"
-        opacity="0.22"
-        transform="rotate(-18 210 260)"
-      />
-      {/* Small accent leaf top-right */}
-      <path
-        d="M360 180 C310 160 290 110 310 60 C328 20 370 10 400 30 C430 50 435 90 415 130 C398 165 380 185 360 180Z"
-        fill="url(#leaf3)"
-        opacity="0.30"
-      />
+    <svg
+      viewBox="0 0 420 560"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="absolute inset-0 w-full h-full"
+      aria-hidden="true"
+    >
+      <style>{`
+        @keyframes floatA { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-16px) rotate(4deg)} }
+        @keyframes floatB { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-11px) rotate(2deg)} }
+        @keyframes floatC { 0%,100%{transform:translateY(0) rotate(3deg)} 50%{transform:translateY(-20px) rotate(-3deg)} }
+        @keyframes floatD { 0%,100%{transform:translateY(0) rotate(2deg)} 50%{transform:translateY(-9px) rotate(-2deg)} }
+        .lf1 { animation: floatA 7s ease-in-out infinite; transform-origin: 210px 265px; }
+        .lf2 { animation: floatB 9s ease-in-out infinite 1s; transform-origin: 180px 250px; }
+        .lf3 { animation: floatC 5.5s ease-in-out infinite 0.5s; transform-origin: 380px 110px; }
+        .lf4 { animation: floatD 8s ease-in-out infinite 2s; transform-origin: 80px 350px; }
+      `}</style>
+      {/* Large back leaf */}
+      <g className="lf1">
+        <path
+          d="M210 520 C90 480 20 360 30 200 C40 80 120 20 210 10 C300 20 380 80 390 200 C400 360 330 480 210 520Z"
+          fill="url(#leaf1)"
+          opacity="0.18"
+        />
+      </g>
+      {/* Front leaf rotated */}
+      <g className="lf2">
+        <path
+          d="M170 500 C60 450 10 330 30 170 C50 40 140 -20 220 20 C290 55 340 150 330 280 C318 400 270 480 170 500Z"
+          fill="url(#leaf2)"
+          opacity="0.22"
+          transform="rotate(-18 210 260)"
+        />
+      </g>
+      {/* Small accent top-right */}
+      <g className="lf3">
+        <path
+          d="M360 180 C310 160 290 110 310 60 C328 20 370 10 400 30 C430 50 435 90 415 130 C398 165 380 185 360 180Z"
+          fill="url(#leaf3)"
+          opacity="0.30"
+        />
+      </g>
       {/* Tiny leaf bottom-left */}
-      <path
-        d="M60 400 C35 375 30 340 50 310 C66 286 96 278 118 292 C140 308 143 340 128 366 C114 388 80 412 60 400Z"
-        fill="url(#leaf2)"
-        opacity="0.25"
-      />
+      <g className="lf4">
+        <path
+          d="M60 400 C35 375 30 340 50 310 C66 286 96 278 118 292 C140 308 143 340 128 366 C114 388 80 412 60 400Z"
+          fill="url(#leaf2)"
+          opacity="0.25"
+        />
+      </g>
       <defs>
         <linearGradient id="leaf1" x1="210" y1="10" x2="210" y2="520" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#FF9966" />
@@ -58,31 +82,95 @@ function LeafDecoration() {
   );
 }
 
-/* ── Mashreq Logo Mark ───────────────────────────── */
-function MashreqLogo({ size = 28 }: { size?: number }) {
+/* ── Floating Particles ──────────────────────────── */
+function Particles() {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <path
-        d="M20 38 C8 33 2 22 4 10 C6 2 13 -1 20 1 C27 -1 34 2 36 10 C38 22 32 33 20 38Z"
-        fill="#F15A22"
-      />
-      <path
-        d="M15 36 C4 30 1 19 5 8 C8 1 15 -2 20 2 C25 -1 30 3 32 10 C35 21 30 32 18 37Z"
-        fill="#C94A18"
-        opacity="0.75"
-      />
-      <text x="20" y="26" textAnchor="middle" fontSize="11" fontWeight="800" fill="white" fontFamily="sans-serif">m</text>
-    </svg>
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+      <style>{`
+        @keyframes rise {
+          0%   { opacity: 0; transform: translateY(0) scale(0.5); }
+          20%  { opacity: 0.8; }
+          100% { opacity: 0; transform: translateY(-130px) scale(1.3); }
+        }
+        .pt { position:absolute; border-radius:50%; animation: rise var(--d,4s) ease-out infinite var(--delay,0s); opacity:0; }
+      `}</style>
+      {[
+        { l:"14%", t:"82%", s:4, c:"#F15A22", d:"4s",   delay:"0s" },
+        { l:"28%", t:"87%", s:3, c:"#FF9966", d:"5s",   delay:"1.2s" },
+        { l:"52%", t:"76%", s:4, c:"#F15A22", d:"3.6s", delay:"0.6s" },
+        { l:"68%", t:"83%", s:5, c:"#FFB380", d:"4.8s", delay:"2s" },
+        { l:"80%", t:"79%", s:3, c:"#F15A22", d:"4.2s", delay:"0.3s" },
+        { l:"40%", t:"89%", s:4, c:"#C94A18", d:"5.4s", delay:"1.8s" },
+        { l:"22%", t:"71%", s:3, c:"#FF9966", d:"3.8s", delay:"3s" },
+        { l:"63%", t:"91%", s:4, c:"#F15A22", d:"4.5s", delay:"1s" },
+      ].map((p, i) => (
+        <div
+          key={i}
+          className="pt"
+          style={{
+            left: p.l, top: p.t,
+            width: p.s, height: p.s,
+            background: p.c,
+            ["--d" as string]: p.d,
+            ["--delay" as string]: p.delay,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
-/* ── OPay Logo Mark ──────────────────────────────── */
+/* ── Mashreq Official Logo (image) ──────────────── */
+function MashreqLogo({ size = 28 }: { size?: number }) {
+  return (
+    <img
+      src="https://crystalpng.com/wp-content/uploads/2025/11/Mashreq-Bank-Logo.png"
+      alt="Mashreq Bank"
+      width={size}
+      height={size}
+      style={{ objectFit: "contain", borderRadius: 6 }}
+    />
+  );
+}
+
+/* ── OPay Official Logo (image) ─────────────────── */
 function OPayLogo({ size = 28 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <rect width="40" height="40" rx="10" fill="#1DA357" />
-      <text x="20" y="27" textAnchor="middle" fontSize="13" fontWeight="800" fill="white" fontFamily="sans-serif">O</text>
-    </svg>
+    <img
+      src="https://i0.wp.com/media.premiumtimesng.com/wp-content/files/2023/08/OPay-logo_page-0001-scaled-e1691674483493.jpg?resize=2560%2C1779&ssl=1"
+      alt="OPay"
+      width={size}
+      height={size}
+      style={{ objectFit: "contain", borderRadius: 6 }}
+    />
+  );
+}
+
+/* ── Live Pulse Badge ────────────────────────────── */
+function LiveBadge() {
+  return (
+    <div
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-6"
+      style={{
+        background: "rgba(74,222,128,0.12)",
+        border: "1px solid rgba(74,222,128,0.28)",
+      }}
+    >
+      <style>{`
+        @keyframes livePulse {
+          0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.5); }
+          50%      { box-shadow: 0 0 0 5px rgba(74,222,128,0); }
+        }
+        .live-dot { animation: livePulse 2s ease-in-out infinite; }
+      `}</style>
+      <span
+        className="live-dot block w-2 h-2 rounded-full"
+        style={{ background: "#4ADE80" }}
+      />
+      <span className="text-[11px] font-semibold tracking-wide" style={{ color: "#4ADE80" }}>
+        100,000+ members earning now
+      </span>
+    </div>
   );
 }
 
@@ -124,83 +212,104 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
-    if (data.user && !data.session) toast.success("Check your email to confirm your account.");
-    else { toast.success("Account created!"); navigate({ to: "/dashboard", replace: true }); }
+    if (data.user && !data.session)
+      toast.success("Check your email to confirm your account.");
+    else {
+      toast.success("Account created!");
+      navigate({ to: "/dashboard", replace: true });
+    }
   }
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-white">
 
-      {/* ── LEFT PANEL — Mashreq orange brand side ── */}
-      <div className="relative lg:w-[52%] xl:w-[55%] bg-[#1C0A00] overflow-hidden flex flex-col justify-between px-8 py-10 lg:px-14 lg:py-14 min-h-[260px] lg:min-h-screen">
-
-        {/* Leaf SVG background */}
+      {/* ── LEFT PANEL ── */}
+      <div
+        className="relative lg:w-[52%] xl:w-[55%] overflow-hidden flex flex-col justify-between px-8 py-10 lg:px-14 lg:py-14 min-h-[260px] lg:min-h-screen"
+        style={{ background: "#1C0A00" }}
+      >
+        {/* Animated leaf SVG */}
         <LeafDecoration />
+
+        {/* Rising particles */}
+        <Particles />
 
         {/* Gradient overlay */}
         <div
           className="absolute inset-0"
           style={{
-            background: "linear-gradient(135deg, #2C1100 0%, #8B2E00 35%, #C94A18 65%, #F15A22 100%)",
+            background:
+              "linear-gradient(135deg, #2C1100 0%, #8B2E00 35%, #C94A18 65%, #F15A22 100%)",
             opacity: 0.88,
           }}
         />
 
-        {/* Content over gradient */}
+        {/* Left content */}
         <div className="relative z-10 flex flex-col h-full justify-between">
 
-          {/* Top brand section */}
-          <div>
-            {/* Expert Solutions wordmark */}
-            <div className="flex items-center gap-3 mb-8 lg:mb-0">
-              <div
-                className="h-11 w-11 rounded-2xl grid place-items-center shadow-lg shrink-0"
-                style={{ background: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)", border: "1.5px solid rgba(255,255,255,0.25)" }}
-              >
-                <span className="text-white font-black text-lg leading-none">ES</span>
-              </div>
-              <div>
-                <div className="text-white font-extrabold text-lg leading-tight">Expert Solutions</div>
-                <div className="text-orange-200/70 text-[11px] tracking-wide">Pakistan's Earning Platform</div>
-              </div>
+          {/* Brand wordmark */}
+          <div className="flex items-center gap-3">
+            <div
+              className="h-11 w-11 rounded-2xl grid place-items-center shadow-lg shrink-0"
+              style={{
+                background: "rgba(255,255,255,0.18)",
+                backdropFilter: "blur(8px)",
+                border: "1.5px solid rgba(255,255,255,0.25)",
+              }}
+            >
+              <span className="text-white font-black text-lg leading-none">ES</span>
             </div>
-
-            {/* Hero copy — desktop only */}
-            <div className="hidden lg:block mt-16">
-              <h1 className="text-white text-4xl xl:text-5xl font-extrabold leading-tight tracking-tight">
-                Earn daily.<br />
-                <span style={{ color: "#FFB380" }}>Get paid fast.</span>
-              </h1>
-              <p className="text-orange-100/70 text-base mt-5 leading-relaxed max-w-sm">
-                Complete tasks, watch videos and earn PKR — powered by Pakistan's most trusted financial partners.
-              </p>
-
-              {/* Stats */}
-              <div className="flex gap-6 mt-10">
-                {[
-                  { val: "₨80+", label: "Per task" },
-                  { val: "24 hrs", label: "Fast payout" },
-                  { val: "10K+", label: "Members" },
-                ].map((s) => (
-                  <div key={s.label}>
-                    <div className="text-white text-2xl font-extrabold">{s.val}</div>
-                    <div className="text-orange-200/60 text-xs mt-0.5">{s.label}</div>
-                  </div>
-                ))}
+            <div>
+              <div className="text-white font-extrabold text-lg leading-tight">
+                Expert Solutions
+              </div>
+              <div className="text-orange-200/70 text-[11px] tracking-wide">
+                Pakistan's Earning Platform
               </div>
             </div>
           </div>
 
-          {/* Bottom — Co-powered by section */}
+          {/* Hero copy — desktop */}
+          <div className="hidden lg:block mt-16">
+            <LiveBadge />
+            <h1 className="text-white text-4xl xl:text-5xl font-extrabold leading-tight tracking-tight">
+              Earn daily.<br />
+              <span style={{ color: "#FFB380" }}>Get paid fast.</span>
+            </h1>
+            <p className="text-orange-100/70 text-base mt-5 leading-relaxed max-w-sm">
+              Complete tasks, watch videos and earn PKR — powered by
+              Pakistan's most trusted financial partners.
+            </p>
+
+            {/* Stats */}
+            <div className="flex gap-6 mt-10">
+              {[
+                { val: "₨80–5K+", label: "Daily payout (PKR)" },
+                { val: "24 hrs",   label: "Fast payout" },
+                { val: "100K+",   label: "Members" },
+              ].map((s) => (
+                <div key={s.label}>
+                  <div className="text-white text-2xl font-extrabold">{s.val}</div>
+                  <div className="text-orange-200/60 text-xs mt-0.5">{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Co-powered partners — desktop */}
           <div className="hidden lg:block">
             <div className="text-orange-200/50 text-[10px] uppercase tracking-widest font-semibold mb-4">
               Co-powered by
             </div>
             <div className="flex items-center gap-4">
-              {/* Mashreq brand */}
+              {/* Mashreq */}
               <div
                 className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5"
-                style={{ background: "rgba(255,255,255,0.10)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.18)" }}
+                style={{
+                  background: "rgba(255,255,255,0.10)",
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                }}
               >
                 <MashreqLogo size={28} />
                 <div>
@@ -208,10 +317,14 @@ function AuthPage() {
                   <div className="text-orange-200/60 text-[10px]">Banking Partner</div>
                 </div>
               </div>
-              {/* OPay brand */}
+              {/* OPay */}
               <div
                 className="flex items-center gap-2.5 rounded-2xl px-4 py-2.5"
-                style={{ background: "rgba(255,255,255,0.10)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.18)" }}
+                style={{
+                  background: "rgba(255,255,255,0.10)",
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                }}
               >
                 <OPayLogo size={28} />
                 <div>
@@ -221,16 +334,17 @@ function AuthPage() {
               </div>
             </div>
             <p className="text-orange-200/40 text-[11px] mt-4 leading-relaxed max-w-xs">
-              Payouts processed through Mashreq Bank & OPay — Pakistan's fastest growing digital payment partners.
+              Payouts processed through Mashreq Bank &amp; OPay — Pakistan's
+              fastest growing digital payment partners.
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── RIGHT PANEL — Login card ── */}
+      {/* ── RIGHT PANEL ── */}
       <div className="flex-1 flex flex-col items-center justify-center px-5 py-10 lg:py-16 bg-white">
 
-        {/* Mobile-only header */}
+        {/* Mobile header */}
         <div className="lg:hidden mb-8 text-center">
           <div
             className="h-14 w-14 rounded-2xl grid place-items-center shadow-lg mx-auto mb-3"
@@ -252,7 +366,7 @@ function AuthPage() {
             <p className="text-gray-500 text-sm mt-1.5">
               {tab === "signin"
                 ? "Sign in to continue earning"
-                : "Join thousands earning PKR daily"}
+                : "Join 100,000+ earning PKR daily"}
             </p>
           </div>
 
@@ -265,7 +379,12 @@ function AuthPage() {
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200"
                 style={
                   tab === t
-                    ? { background: "linear-gradient(135deg,#C94A18,#F15A22)", color: "white", boxShadow: "0 4px 14px rgba(241,90,34,0.35)" }
+                    ? {
+                        background:
+                          "linear-gradient(135deg,#C94A18,#F15A22)",
+                        color: "white",
+                        boxShadow: "0 4px 14px rgba(241,90,34,0.35)",
+                      }
                     : { color: "#6b7280" }
                 }
               >
@@ -274,10 +393,13 @@ function AuthPage() {
             ))}
           </div>
 
+          {/* ── Sign In Form ── */}
           {tab === "signin" ? (
             <form onSubmit={handleSignIn} className="space-y-5">
               <div className="space-y-1.5">
-                <Label htmlFor="si-email" className="text-gray-700 text-sm font-semibold">Email Address</Label>
+                <Label htmlFor="si-email" className="text-gray-700 text-sm font-semibold">
+                  Email Address
+                </Label>
                 <Input
                   id="si-email"
                   type="email"
@@ -290,7 +412,9 @@ function AuthPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="si-pw" className="text-gray-700 text-sm font-semibold">Password</Label>
+                <Label htmlFor="si-pw" className="text-gray-700 text-sm font-semibold">
+                  Password
+                </Label>
                 <div className="relative">
                   <Input
                     id="si-pw"
@@ -307,7 +431,11 @@ function AuthPage() {
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     onClick={() => setShowPw((p) => !p)}
                   >
-                    {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPw ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -315,23 +443,37 @@ function AuthPage() {
                 type="submit"
                 disabled={loading}
                 className="w-full h-12 rounded-xl text-white font-bold text-sm transition-all duration-200 mt-2 disabled:opacity-60"
-                style={{ background: "linear-gradient(135deg,#C94A18,#F15A22)", boxShadow: "0 4px 20px rgba(241,90,34,0.35)" }}
+                style={{
+                  background: "linear-gradient(135deg,#C94A18,#F15A22)",
+                  boxShadow: "0 4px 20px rgba(241,90,34,0.35)",
+                }}
               >
                 {loading ? "Signing in…" : "Sign In →"}
               </button>
             </form>
           ) : (
+            /* ── Sign Up Form ── */
             <form onSubmit={handleSignUp} className="space-y-4">
               {/* Personal email notice */}
-              <div className="flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: "#FFF5EF", border: "1px solid #FECDB5" }}>
-                <Mail className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "#F15A22" }} />
+              <div
+                className="flex items-start gap-2.5 rounded-xl px-3.5 py-3"
+                style={{ background: "#FFF5EF", border: "1px solid #FECDB5" }}
+              >
+                <Mail
+                  className="h-4 w-4 shrink-0 mt-0.5"
+                  style={{ color: "#F15A22" }}
+                />
                 <p className="text-xs leading-relaxed" style={{ color: "#7A2F0A" }}>
-                  <strong>Use your personal email.</strong> We send tasks, activation keys and work details to this address. Temporary emails won't work.
+                  <strong>Use your personal email.</strong> We send tasks,
+                  activation keys and work details to this address. Temporary
+                  emails won't work.
                 </p>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="su-name" className="text-gray-700 text-sm font-semibold">Full Name</Label>
+                <Label htmlFor="su-name" className="text-gray-700 text-sm font-semibold">
+                  Full Name
+                </Label>
                 <Input
                   id="su-name"
                   autoComplete="name"
@@ -343,7 +485,9 @@ function AuthPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="su-email" className="text-gray-700 text-sm font-semibold">Personal Email</Label>
+                <Label htmlFor="su-email" className="text-gray-700 text-sm font-semibold">
+                  Personal Email
+                </Label>
                 <Input
                   id="su-email"
                   type="email"
@@ -356,7 +500,9 @@ function AuthPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="su-pw" className="text-gray-700 text-sm font-semibold">Password</Label>
+                <Label htmlFor="su-pw" className="text-gray-700 text-sm font-semibold">
+                  Password
+                </Label>
                 <div className="relative">
                   <Input
                     id="su-pw"
@@ -373,7 +519,11 @@ function AuthPage() {
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     onClick={() => setShowPw((p) => !p)}
                   >
-                    {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPw ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -381,7 +531,10 @@ function AuthPage() {
                 type="submit"
                 disabled={loading}
                 className="w-full h-12 rounded-xl text-white font-bold text-sm transition-all duration-200 mt-1 disabled:opacity-60"
-                style={{ background: "linear-gradient(135deg,#C94A18,#F15A22)", boxShadow: "0 4px 20px rgba(241,90,34,0.35)" }}
+                style={{
+                  background: "linear-gradient(135deg,#C94A18,#F15A22)",
+                  boxShadow: "0 4px 20px rgba(241,90,34,0.35)",
+                }}
               >
                 {loading ? "Creating account…" : "Create Account →"}
               </button>
@@ -396,7 +549,9 @@ function AuthPage() {
 
           {/* Mobile co-powered section */}
           <div className="lg:hidden mt-8 pt-6 border-t border-gray-100">
-            <div className="text-gray-400 text-[10px] uppercase tracking-widest font-semibold mb-3 text-center">Co-powered by</div>
+            <div className="text-gray-400 text-[10px] uppercase tracking-widest font-semibold mb-3 text-center">
+              Co-powered by
+            </div>
             <div className="flex items-center justify-center gap-3">
               <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
                 <MashreqLogo size={22} />
