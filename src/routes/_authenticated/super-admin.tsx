@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Crown, Send, Key, Mail, Search, Check, Loader2, MessageCircle, X, CheckCheck, Clock, ChevronLeft, Plus, Package, Pencil, ToggleLeft, ToggleRight, FileVideo, Zap, Calendar, Trash2, FilePlus, Download } from "lucide-react";
+import { Crown, Send, Key, Mail, Search, Check, Loader2, MessageCircle, X, CheckCheck, Clock, ChevronLeft, Plus, Package, Pencil, ToggleLeft, ToggleRight, FileVideo, Zap, Calendar, Trash2, FilePlus, Download, Paperclip, Copy, ShieldCheck, ShieldOff, Sparkles } from "lucide-react";
 import { AnyFileUpload } from "@/components/feature/file-upload";
 
 export const Route = createFileRoute("/_authenticated/super-admin")({
@@ -148,23 +148,55 @@ function ActivationKeysPanel() {
     qc.invalidateQueries({ queryKey: ["activation-keys"] });
   }
 
+  const totalKeys  = (keys ?? []).length;
+  const activeKeys = (keys ?? []).filter((k: any) => !k.used_by && k.is_active).length;
+  const usedKeys   = (keys ?? []).filter((k: any) => !!k.used_by).length;
+
   return (
     <div className="space-y-5 mt-4">
+
+      {/* Stats row */}
+      {totalKeys > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Total Keys",  value: totalKeys,  color: "text-primary",                        bg: "from-primary/15 to-primary/5",       Icon: Key },
+            { label: "Available",   value: activeKeys, color: "text-emerald-600 dark:text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5", Icon: ShieldCheck },
+            { label: "Used",        value: usedKeys,   color: "text-amber-600 dark:text-amber-400",  bg: "from-amber-500/15 to-amber-500/5",    Icon: ShieldOff },
+          ].map(({ label, value, color, bg, Icon: StatIcon }) => (
+            <div key={label} className={cn("rounded-2xl border p-3 sm:p-4 bg-gradient-to-br", bg)}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{label}</span>
+                <StatIcon className={cn("h-3.5 w-3.5", color)} />
+              </div>
+              <div className={cn("text-2xl font-extrabold", color)}>{value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Create key card */}
-      <Card className="glass border-primary/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Key className="h-4 w-4 text-primary" /> Generate Activation Key
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
+      <div className="rounded-2xl border border-primary/20 overflow-hidden">
+        {/* Gradient header */}
+        <div className="bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xl bg-white/15 grid place-items-center">
+              <Sparkles className="h-4 w-4 text-white" />
+            </div>
             <div>
-              <Label className="text-xs">Package</Label>
+              <div className="text-white font-bold text-sm">Generate Activation Key</div>
+              <div className="text-white/60 text-[11px]">Create a key to share with a specific member</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-3 bg-card">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Package *</Label>
               <select
                 value={selectedPkgId}
                 onChange={(e) => setSelectedPkgId(e.target.value)}
-                className="w-full mt-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">— Select package —</option>
                 {(packages ?? []).map((p: any) => (
@@ -172,33 +204,39 @@ function ActivationKeysPanel() {
                 ))}
               </select>
             </div>
-            <div>
-              <Label className="text-xs">Custom Key (leave blank to auto-generate)</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Custom Key <span className="font-normal text-muted-foreground">(auto if blank)</span></Label>
               <Input
-                className="mt-1 font-mono text-sm"
+                className="font-mono text-sm h-10 rounded-xl"
                 value={newKey}
                 onChange={(e) => setNewKey(e.target.value)}
                 placeholder="KEY-XXXX-XXXX"
               />
             </div>
           </div>
-          <div>
-            <Label className="text-xs">Notes (optional)</Label>
-            <Input className="mt-1 text-sm" value={newNotes} onChange={(e) => setNewNotes(e.target.value)} placeholder="e.g. for Ahmed Khan" />
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Notes <span className="font-normal text-muted-foreground">(optional)</span></Label>
+            <Input className="text-sm h-10 rounded-xl" value={newNotes} onChange={(e) => setNewNotes(e.target.value)} placeholder="e.g. for Ahmed Khan · Batch 1" />
           </div>
-          <Button onClick={generateKey} disabled={creating} className="gap-2">
+          <Button onClick={generateKey} disabled={creating || !selectedPkgId} className="gap-2 rounded-xl h-10 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 border-0">
             {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
             Generate Key
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Keys list */}
       <div className="space-y-2">
-        {(keys ?? []).map((k: any) => (
-          <KeyRow key={k.id} keyRow={k} packages={packages ?? []} onRefresh={() => qc.invalidateQueries({ queryKey: ["activation-keys"] })} />
-        ))}
-        {!keys?.length && <p className="text-muted-foreground text-sm py-4">No activation keys yet.</p>}
+        {!keys?.length ? (
+          <div className="py-10 text-center rounded-2xl border border-dashed">
+            <Key className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">No activation keys yet. Generate your first key above.</p>
+          </div>
+        ) : (
+          (keys ?? []).map((k: any) => (
+            <KeyRow key={k.id} keyRow={k} packages={packages ?? []} onRefresh={() => qc.invalidateQueries({ queryKey: ["activation-keys"] })} />
+          ))
+        )}
       </div>
     </div>
   );
@@ -588,35 +626,64 @@ function BulkAssign() {
 
           {/* Video links — only show for video type */}
           {taskType === "video" && (
-            <div>
+            <div className="space-y-2">
               <Label className="text-xs font-semibold">Video Links (one per line, max 10)</Label>
+              {/* Sample YouTube quick-add */}
+              <div>
+                <p className="text-[10px] text-muted-foreground mb-1.5">Sample YouTube links (click to add):</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: "Sample Video 1", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+                    { label: "Sample Video 2", url: "https://www.youtube.com/watch?v=9bZkp7q19f0" },
+                    { label: "Sample Video 3", url: "https://www.youtube.com/watch?v=kJQP7kiw5Fk" },
+                    { label: "Sample Video 4", url: "https://www.youtube.com/watch?v=JGwWNGJdvx8" },
+                    { label: "Sample Video 5", url: "https://www.youtube.com/watch?v=60ItHLz5WEA" },
+                  ].map((s) => (
+                    <button
+                      key={s.url}
+                      type="button"
+                      onClick={() => {
+                        const lines = videoLinks.split("\n").map((l) => l.trim()).filter(Boolean);
+                        if (!lines.includes(s.url) && lines.length < 10) {
+                          setVideoLinks((prev) => prev.trim() ? prev.trim() + "\n" + s.url : s.url);
+                        }
+                      }}
+                      className="text-[10px] px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors font-medium"
+                    >
+                      ▶ {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <Textarea
                 value={videoLinks}
                 onChange={(e) => setVideoLinks(e.target.value)}
                 rows={4}
-                className="mt-1 resize-none font-mono text-xs"
+                className="resize-none font-mono text-xs"
                 placeholder={"https://youtube.com/watch?v=...\nhttps://youtube.com/watch?v=..."}
               />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                {videoLinks.split("\n").filter((s) => s.trim()).length} / 10 videos
+              <p className="text-[11px] text-muted-foreground">
+                {videoLinks.split("\n").filter((s) => s.trim()).length} / 10 videos added
               </p>
             </div>
           )}
 
-          {/* Attachment — for non-video types */}
-          {taskType !== "video" && (
-            <div>
-              <Label className="text-xs font-semibold">Attach File for User (optional)</Label>
-              <p className="text-[11px] text-muted-foreground mb-2 mt-0.5">Upload any file the user needs to download to complete this task.</p>
-              <AnyFileUpload
-                bucket="task-attachments"
-                pathPrefix={`tasks/${Date.now()}`}
-                value={attachmentUrl}
-                fileName={attachmentName}
-                onChange={(url, name) => { setAttachmentUrl(url); setAttachmentName(name ?? ""); }}
-              />
-            </div>
-          )}
+          {/* Attachment — available for ALL task types */}
+          <div className="rounded-xl border border-dashed border-primary/25 p-3 bg-primary/[0.02]">
+            <Label className="text-xs font-semibold mb-1 flex items-center gap-1.5">
+              <Paperclip className="h-3.5 w-3.5 text-primary" /> Attach File for User (optional)
+            </Label>
+            <p className="text-[11px] text-muted-foreground mb-2">
+              Upload any file (PDF, image, video, doc) the user needs to download to complete this task.
+            </p>
+            <AnyFileUpload
+              bucket="task-attachments"
+              pathPrefix={`tasks/${Date.now()}`}
+              value={attachmentUrl}
+              fileName={attachmentName}
+              onChange={(url, name) => { setAttachmentUrl(url); setAttachmentName(name ?? ""); }}
+            />
+          </div>
 
           {/* Email notification toggle */}
           <div className="flex items-start gap-2.5 rounded-xl bg-emerald-500/8 border border-emerald-500/20 px-3 py-3">
