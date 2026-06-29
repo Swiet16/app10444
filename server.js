@@ -189,6 +189,92 @@ async function start() {
     res.json({ sender: getSender() });
   });
 
+  app.post("/api/send-task-email", async (req, res) => {
+    const { toEmail, toName, taskTitle, taskDescription, taskReward, attachmentUrl, attachmentName, dueDate } = req.body;
+    if (!process.env.BREVO_API_KEY) return res.status(500).json({ error: "Email service not configured — BREVO_API_KEY missing" });
+    if (!toEmail || !taskTitle) return res.status(400).json({ error: "Missing required fields" });
+
+    try {
+      const sender = getSender();
+      const firstName = (toName || "Member").split(" ")[0];
+      const dueLine = dueDate ? `<p style="margin:8px 0 0;font-size:13px;color:#6366f1;font-weight:700;">📅 Due: ${new Date(dueDate).toLocaleString("en-PK", { dateStyle: "medium", timeStyle: "short" })}</p>` : "";
+      const attachLine = attachmentUrl ? `
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+          <tr><td style="padding:0 40px;">
+            <a href="${attachmentUrl}" target="_blank" style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #c4b5fd;border-radius:14px;padding:14px 18px;text-decoration:none;">
+              <span style="font-size:24px;">📎</span>
+              <div>
+                <div style="font-size:13px;font-weight:800;color:#4f46e5;">${attachmentName || "Download Task File"}</div>
+                <div style="font-size:11px;color:#7c3aed;margin-top:2px;">Click to download · required to complete this task</div>
+              </div>
+            </a>
+          </td></tr>
+        </table>` : "";
+
+      const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>New Task Assigned</title></head>
+<body style="margin:0;padding:0;background:#eef2ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#eef2ff;padding:40px 16px 60px;"><tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+  <tr><td style="text-align:center;padding-bottom:22px;">
+    <table cellpadding="0" cellspacing="0" style="display:inline-table;"><tr>
+      <td style="background:linear-gradient(135deg,#4f46e5,#7c3aed);width:36px;height:36px;border-radius:9px;text-align:center;vertical-align:middle;font-size:18px;color:#fff;">💼</td>
+      <td style="padding-left:10px;vertical-align:middle;"><span style="font-size:18px;font-weight:800;color:#1e1b4b;">Expert Solutions</span></td>
+    </tr></table>
+    <p style="margin:5px 0 0;color:#6b7280;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;">Pakistan's Earning Platform</p>
+  </td></tr>
+  <tr><td style="background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 8px 48px rgba(79,70,229,0.14);">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 40%,#6d28d9 100%);padding:48px 40px 52px;text-align:center;">
+        <div style="font-size:56px;line-height:1;margin-bottom:16px;">📋</div>
+        <h1 style="margin:0;color:#fff;font-size:27px;font-weight:900;">New Task Assigned!</h1>
+        <p style="margin:10px 0 0;color:rgba(255,255,255,0.72);font-size:14px;">You have a new task waiting for you</p>
+        <div style="display:inline-block;margin-top:18px;background:rgba(52,211,153,0.18);border:1px solid rgba(52,211,153,0.45);border-radius:100px;padding:7px 20px;">
+          <span style="color:#6ee7b7;font-size:12px;font-weight:800;">✓ &nbsp;EARN ₨${taskReward || "—"} ON COMPLETION</span>
+        </div>
+      </td>
+    </tr></table>
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:36px 40px 24px;">
+      <p style="margin:0 0 6px;font-size:17px;font-weight:800;color:#111827;">Hi ${firstName}! 👋</p>
+      <p style="margin:0 0 20px;font-size:14px;color:#4b5563;line-height:1.75;">A new task has been assigned to your account. Log in, complete it, and submit your proof to earn <strong style="color:#4f46e5;">₨${taskReward || "—"} PKR</strong>.</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #c4b5fd;border-radius:20px;"><tr><td style="padding:24px;">
+        <p style="margin:0 0 8px;font-size:10px;text-transform:uppercase;letter-spacing:3px;font-weight:800;color:#7c3aed;">📋 Task Details</p>
+        <p style="margin:0 0 4px;font-size:20px;font-weight:900;color:#1e1b4b;">${taskTitle}</p>
+        ${taskDescription ? `<p style="margin:8px 0 0;font-size:13px;color:#4b5563;line-height:1.7;">${taskDescription}</p>` : ""}
+        ${dueLine}
+      </td></tr></table>
+    </td></tr></table>
+    ${attachLine}
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:0 40px 36px;text-align:center;">
+      <p style="margin:0 0 16px;font-size:13px;color:#6b7280;">Log in to your account to view and complete this task.</p>
+    </td></tr></table>
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid #f3f4f6;padding:20px 40px 28px;text-align:center;">
+      <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;">Expert Solutions · Pakistan's Trusted Earning Platform</p>
+      <p style="margin:0;font-size:11px;color:#d1d5db;">You received this because a task was assigned to your account.</p>
+    </td></tr></table>
+  </td></tr>
+  <tr><td style="text-align:center;padding-top:22px;"><p style="margin:0;font-size:12px;color:#9ca3af;">Made with 💜 in Pakistan</p></td></tr>
+</table></td></tr></table>
+</body></html>`;
+
+      const { ok, status, data } = await brevoRequest("/smtp/email", "POST", {
+        sender,
+        to: [{ email: toEmail, name: toName || toEmail }],
+        subject: `📋 New Task Assigned — ${taskTitle}`,
+        htmlContent,
+      });
+
+      if (!ok) {
+        const msg = data?.message || "";
+        const isIpBlock = msg.toLowerCase().includes("unrecogni") || msg.toLowerCase().includes("ip address") || status === 401;
+        if (isIpBlock) return res.status(403).json({ error: "IP_NOT_AUTHORIZED" });
+        return res.status(500).json({ error: msg || "Brevo rejected the request" });
+      }
+      res.json({ success: true, messageId: data.messageId });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   app.post("/api/send-activation-email", async (req, res) => {
     const { toEmail, toName, activationKey, packageName } = req.body;
     if (!process.env.BREVO_API_KEY) return res.status(500).json({ error: "Email service not configured — BREVO_API_KEY missing" });

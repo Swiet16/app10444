@@ -48,6 +48,24 @@ function pkr(val: number) {
   return `₨${val.toLocaleString("en-PK", { maximumFractionDigits: 0 })}`;
 }
 
+function useUnreadNotifications(enabled: boolean) {
+  return useQuery({
+    queryKey: ["notifications-unread-count"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return 0;
+      const { count } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", u.user.id)
+        .is("read_at", null);
+      return count ?? 0;
+    },
+    enabled,
+    refetchInterval: 30000,
+  });
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -60,6 +78,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     enabled: authReady,
     retry: false,
   });
+
+  const { data: unreadCount = 0 } = useUnreadNotifications(authReady);
 
   const { data: banStatus } = useQuery({
     queryKey: ["my-ban"],
@@ -147,6 +167,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               <ShieldAlert className="h-3 w-3" /> {activeStrikeCount}
             </div>
           )}
+
+          {/* Notification bell with badge */}
+          <Link to="/notifications" aria-label="Notifications" className="relative">
+            <div className="h-8 w-8 rounded-xl bg-muted/60 border border-border/50 grid place-items-center hover:bg-muted transition-colors">
+              <Bell className="h-4 w-4 text-muted-foreground" />
+            </div>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 min-w-4 px-0.5 rounded-full bg-rose-500 text-white text-[9px] font-bold grid place-items-center shadow-sm">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </Link>
+
           <Link to="/profile" aria-label="Profile">
             <Avatar className="h-8 w-8 ring-2 ring-primary/20">
               <AvatarImage src={ctx?.profile?.avatar_url ?? undefined} />
@@ -161,12 +194,20 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* ── Desktop layout ──────────────────────────────── */}
       <div className="flex flex-1 min-h-0">
         <aside className="hidden lg:flex sticky top-0 h-screen w-64 shrink-0 border-r bg-sidebar text-sidebar-foreground flex-col">
-          <DesktopSidebar ctx={ctx} onSignOut={signOut} pathname={pathname} strikeCount={activeStrikeCount} onOpenHelp={() => setHelpOpen(true)} sideNav={filteredSideNav} />
+          <DesktopSidebar
+            ctx={ctx}
+            onSignOut={signOut}
+            pathname={pathname}
+            strikeCount={activeStrikeCount}
+            onOpenHelp={() => setHelpOpen(true)}
+            sideNav={filteredSideNav}
+            unreadNotifications={unreadCount}
+          />
         </aside>
 
         <main className="flex-1 min-w-0 pb-24 lg:pb-0">
           <div className="px-4 sm:px-6 lg:px-10 py-4 sm:py-6 lg:py-8 max-w-7xl mx-auto">
-              {isBanned ? <BannedScreen status={banStatus} onSignOut={signOut} /> : children}
+            {isBanned ? <BannedScreen status={banStatus} onSignOut={signOut} /> : children}
           </div>
         </main>
         <HelpCenter userId={ctx?.userId} open={helpOpen} onOpenChange={setHelpOpen} />
@@ -250,6 +291,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {MORE_NAV.map((item) => {
                     const Icon = item.icon;
                     const active = pathname.startsWith(item.to);
+                    const isNotif = item.to === "/notifications";
                     return (
                       <Link
                         key={item.to}
@@ -259,7 +301,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                           active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted",
                         )}
                       >
-                        <Icon className="h-5 w-5" />
+                        <div className="relative">
+                          <Icon className="h-5 w-5" />
+                          {isNotif && unreadCount > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-rose-500 text-white text-[9px] font-bold grid place-items-center">
+                              {unreadCount > 9 ? "9+" : unreadCount}
+                            </span>
+                          )}
+                        </div>
                         <span className="flex-1">{item.label}</span>
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </Link>
@@ -271,9 +320,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     onClick={() => { setMoreOpen(false); setHelpOpen(true); }}
                     className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-medium text-foreground hover:bg-muted transition-colors"
                   >
-                    <div className="relative">
-                      <Headphones className="h-5 w-5 text-violet-500" />
-                    </div>
+                    <Headphones className="h-5 w-5 text-violet-500" />
                     <span className="flex-1 text-left">Help & Support</span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>
@@ -369,6 +416,7 @@ function DesktopSidebar({
   strikeCount,
   onOpenHelp,
   sideNav,
+  unreadNotifications,
 }: {
   ctx: Awaited<ReturnType<typeof getCurrentUserContext>> | undefined;
   onSignOut: () => void;
@@ -376,6 +424,7 @@ function DesktopSidebar({
   strikeCount: number;
   onOpenHelp: () => void;
   sideNav: typeof SIDE_NAV | typeof SIDE_NAV[number][];
+  unreadNotifications: number;
 }) {
   return (
     <div className="flex flex-col w-full h-full">
@@ -387,6 +436,7 @@ function DesktopSidebar({
         {sideNav.map((item) => {
           const active = pathname.startsWith(item.to);
           const Icon = item.icon;
+          const isNotif = item.to === "/notifications";
           return (
             <Link
               key={item.to}
@@ -398,8 +448,20 @@ function DesktopSidebar({
                   : "text-sidebar-foreground hover:bg-sidebar-accent/60",
               )}
             >
-              <Icon className="h-4 w-4" />
-              {item.label}
+              <div className="relative">
+                <Icon className="h-4 w-4" />
+                {isNotif && unreadNotifications > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-rose-500 text-white text-[9px] font-bold grid place-items-center shadow-sm">
+                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                  </span>
+                )}
+              </div>
+              <span className="flex-1">{item.label}</span>
+              {isNotif && unreadNotifications > 0 && (
+                <span className="ml-auto rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 text-[10px] font-bold px-1.5 py-0.5">
+                  {unreadNotifications}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -423,7 +485,6 @@ function DesktopSidebar({
       </nav>
 
       <div className="border-t p-3 space-y-1">
-        {/* Help & Support */}
         <button
           onClick={onOpenHelp}
           className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors min-h-11"

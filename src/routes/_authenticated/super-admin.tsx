@@ -14,7 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Crown, Send, Key, Mail, Search, Check, Loader2, MessageCircle, X, CheckCheck, Clock, ChevronLeft, Plus, Package, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
+import { Crown, Send, Key, Mail, Search, Check, Loader2, MessageCircle, X, CheckCheck, Clock, ChevronLeft, Plus, Package, Pencil, ToggleLeft, ToggleRight, FileVideo, Zap, Calendar, Trash2, FilePlus, Download } from "lucide-react";
+import { AnyFileUpload } from "@/components/feature/file-upload";
 
 export const Route = createFileRoute("/_authenticated/super-admin")({
   head: () => ({ meta: [{ title: "Super Admin — Expert Solutions" }] }),
@@ -61,7 +62,12 @@ function SuperAdminPage() {
           <TabsTrigger value="keys">
             <Key className="h-3.5 w-3.5 mr-1.5" /> Activation Keys
           </TabsTrigger>
-          <TabsTrigger value="bulk">Bulk assign</TabsTrigger>
+          <TabsTrigger value="bulk">
+            <Zap className="h-3.5 w-3.5 mr-1.5" /> Bulk Assign
+          </TabsTrigger>
+          <TabsTrigger value="templates">
+            <FileVideo className="h-3.5 w-3.5 mr-1.5" /> Templates
+          </TabsTrigger>
           <TabsTrigger value="users">Users & roles</TabsTrigger>
           <TabsTrigger value="fake">Fake reviews</TabsTrigger>
           <TabsTrigger value="support" className="relative">
@@ -74,6 +80,7 @@ function SuperAdminPage() {
         </TabsList>
         <TabsContent value="keys"><ActivationKeysPanel /></TabsContent>
         <TabsContent value="bulk"><BulkAssign /></TabsContent>
+        <TabsContent value="templates"><TemplatesPanel /></TabsContent>
         <TabsContent value="users"><UserList /></TabsContent>
         <TabsContent value="fake"><FakeReviews /></TabsContent>
         <TabsContent value="support"><SupportPanel /></TabsContent>
@@ -420,68 +427,277 @@ function BulkAssign() {
   const [reward, setReward] = useState("80");
   const [videoLinks, setVideoLinks] = useState("");
   const [taskType, setTaskType] = useState("general");
+  const [dueDate, setDueDate] = useState("");
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const [attachmentName, setAttachmentName] = useState("");
+  const [sendEmail, setSendEmail] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+
   const { data: users } = useQuery({
     queryKey: ["assign-users"],
     queryFn: async () => { const { data } = await supabase.rpc("get_users_for_assignment", { _limit: 500 }); return (data as any[]) ?? []; },
   });
 
+  const { data: templates } = useQuery({
+    queryKey: ["task-templates"],
+    queryFn: async () => {
+      const { data } = await supabase.from("task_templates").select("*").order("created_at", { ascending: false });
+      return (data ?? []) as any[];
+    },
+  });
+
+  const filteredUsers = useMemo(() =>
+    (users ?? []).filter((u: any) =>
+      !userSearch || `${u.full_name ?? ""} ${u.username ?? ""} ${u.email ?? ""}`.toLowerCase().includes(userSearch.toLowerCase())
+    ), [users, userSearch]);
+
+  function applyTemplate(t: any) {
+    setTitle(t.name);
+    setDescription(t.description ?? "");
+    setReward(String(t.reward ?? 80));
+    setTaskType(t.task_type ?? "general");
+    setVideoLinks((t.video_links ?? []).join("\n"));
+    if (t.attachment_url) { setAttachmentUrl(t.attachment_url); setAttachmentName(t.attachment_name ?? ""); }
+    toast.success(`Template "${t.name}" applied ✓`);
+  }
+
   async function assign() {
-    if (!title || selectedIds.size === 0) return toast.error("Title + users required");
+    if (!title || selectedIds.size === 0) return toast.error("Title + at least 1 user required");
     setSaving(true);
-    const { data, error } = await supabase.rpc("bulk_assign_task", {
-      _title: title, _description: description, _instructions: "",
-      _task_type: taskType, _reward: parseFloat(reward) || 0, _currency: "PKR",
-      _video_links: videoLinks.split("\n").map((s) => s.trim()).filter(Boolean),
-      _thumbnail_url: undefined, _auto_approve: false,
-      _user_ids: Array.from(selectedIds),
-    });
-    setSaving(false);
-    if (error || !(data as any)?.success) toast.error((data as any)?.error ?? error?.message ?? "Failed");
-    else {
-      toast.success(`Assigned to ${(data as any).assigned} users! 🎯`);
+    try {
+      const { data, error } = await supabase.rpc("bulk_assign_task", {
+        _title: title, _description: description, _instructions: "",
+        _task_type: taskType, _reward: parseFloat(reward) || 0, _currency: "PKR",
+        _video_links: videoLinks.split("\n").map((s) => s.trim()).filter(Boolean),
+        _thumbnail_url: undefined, _auto_approve: false,
+        _user_ids: Array.from(selectedIds),
+      });
+      if (error || !(data as any)?.success) { toast.error((data as any)?.error ?? error?.message ?? "Failed"); return; }
+
+      const assigned = (data as any).assigned as number;
+      toast.success(`Assigned to ${assigned} user${assigned !== 1 ? "s" : ""}! 🎯`);
+
+      // Update newly created tasks with due_date + attachment if set
+      if (dueDate || attachmentUrl) {
+        const selectedArr = Array.from(selectedIds);
+        const { data: newTasks } = await supabase
+          .from("tasks")
+          .select("id")
+          .eq("title", title)
+          .in("assigned_to", selectedArr)
+          .order("created_at", { ascending: false })
+          .limit(selectedArr.length * 2);
+        if (newTasks?.length) {
+          await supabase.from("tasks").update({
+            ...(dueDate ? { due_date: new Date(dueDate).toISOString() } : {}),
+            ...(attachmentUrl ? { attachment_url: attachmentUrl, attachment_name: attachmentName || null } : {}),
+          }).in("id", newTasks.map((t: any) => t.id));
+        }
+      }
+
+      // Send email notifications if requested
+      if (sendEmail) {
+        const selectedUsers = (users ?? []).filter((u: any) => selectedIds.has(u.id));
+        const emailPromises = selectedUsers.map((u: any) =>
+          fetch("/api/send-task-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              toEmail: u.email, toName: u.full_name ?? u.username,
+              taskTitle: title, taskDescription: description,
+              taskReward: parseFloat(reward) || 0,
+              ...(attachmentUrl ? { attachmentUrl, attachmentName: attachmentName || undefined } : {}),
+              ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
+            }),
+          })
+        );
+        const results = await Promise.allSettled(emailPromises);
+        const sent = results.filter((r) => r.status === "fulfilled").length;
+        toast.success(`📧 Emails sent to ${sent}/${selectedUsers.length} users`);
+      }
+
       setTitle(""); setDescription(""); setSelectedIds(new Set());
+      setDueDate(""); setAttachmentUrl(null); setAttachmentName(""); setSendEmail(false);
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
     <div className="grid lg:grid-cols-2 gap-4 mt-4">
       <Card className="glass">
-        <CardHeader><CardTitle>Task details</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-amber-500" /> Task Details
+          </CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
-          <div><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-          <div><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} /></div>
+          {/* Template picker */}
+          {templates && templates.length > 0 && (
+            <div>
+              <Label className="text-xs font-semibold">Apply Template (optional)</Label>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {templates.map((t: any) => (
+                  <button
+                    key={t.id}
+                    onClick={() => applyTemplate(t)}
+                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-700 dark:text-violet-400 hover:bg-violet-500/20 transition-colors font-medium"
+                  >
+                    <FileVideo className="h-3 w-3" /> {t.name}
+                  </button>
+                ))}
+              </div>
+              <div className="border-t my-3" />
+            </div>
+          )}
+
+          <div><Label>Title *</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title…" className="mt-1" /></div>
+          <div><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="mt-1 resize-none" /></div>
+
           <div className="grid grid-cols-2 gap-2">
-            <div><Label>Reward (PKR)</Label><Input type="number" value={reward} onChange={(e) => setReward(e.target.value)} /></div>
-            <div><Label>Type</Label><Input value={taskType} onChange={(e) => setTaskType(e.target.value)} placeholder="general / video" /></div>
+            <div>
+              <Label className="text-xs font-semibold">Reward (PKR)</Label>
+              <Input type="number" value={reward} onChange={(e) => setReward(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold">Task Type</Label>
+              <select
+                value={taskType}
+                onChange={(e) => setTaskType(e.target.value)}
+                className="w-full mt-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="general">General</option>
+                <option value="video">Video</option>
+                <option value="file">File</option>
+              </select>
+            </div>
           </div>
-          <div><Label>Video links (one per line)</Label><Textarea value={videoLinks} onChange={(e) => setVideoLinks(e.target.value)} rows={3} /></div>
-          <Button onClick={assign} disabled={saving} className="gap-2">
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            Assign to {selectedIds.size} users
+
+          {/* Due date */}
+          <div>
+            <Label className="text-xs font-semibold flex items-center gap-1"><Calendar className="h-3 w-3" /> Due Date / Deadline (optional)</Label>
+            <Input
+              type="datetime-local"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+
+          {/* Video links — only show for video type */}
+          {taskType === "video" && (
+            <div>
+              <Label className="text-xs font-semibold">Video Links (one per line, max 10)</Label>
+              <Textarea
+                value={videoLinks}
+                onChange={(e) => setVideoLinks(e.target.value)}
+                rows={4}
+                className="mt-1 resize-none font-mono text-xs"
+                placeholder={"https://youtube.com/watch?v=...\nhttps://youtube.com/watch?v=..."}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {videoLinks.split("\n").filter((s) => s.trim()).length} / 10 videos
+              </p>
+            </div>
+          )}
+
+          {/* Attachment — for non-video types */}
+          {taskType !== "video" && (
+            <div>
+              <Label className="text-xs font-semibold">Attach File for User (optional)</Label>
+              <p className="text-[11px] text-muted-foreground mb-2 mt-0.5">Upload any file the user needs to download to complete this task.</p>
+              <AnyFileUpload
+                bucket="task-attachments"
+                pathPrefix={`tasks/${Date.now()}`}
+                value={attachmentUrl}
+                fileName={attachmentName}
+                onChange={(url, name) => { setAttachmentUrl(url); setAttachmentName(name ?? ""); }}
+              />
+            </div>
+          )}
+
+          {/* Email notification toggle */}
+          <div className="flex items-start gap-2.5 rounded-xl bg-emerald-500/8 border border-emerald-500/20 px-3 py-3">
+            <Checkbox
+              id="send-email"
+              checked={sendEmail}
+              onCheckedChange={(v) => setSendEmail(!!v)}
+              className="mt-0.5"
+            />
+            <label htmlFor="send-email" className="cursor-pointer">
+              <div className="text-sm font-semibold flex items-center gap-1.5">
+                <Mail className="h-3.5 w-3.5 text-emerald-600" /> Send email notification
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Send a live task assignment email to selected users via Brevo
+              </p>
+            </label>
+          </div>
+
+          <Button onClick={assign} disabled={saving || !title || selectedIds.size === 0} className="w-full gap-2 h-11">
+            {saving
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Assigning…</>
+              : <><Zap className="h-4 w-4" /> Assign to {selectedIds.size} user{selectedIds.size !== 1 ? "s" : ""}</>}
           </Button>
         </CardContent>
       </Card>
+
       <Card className="glass">
         <CardHeader>
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle>Pick users</CardTitle>
-            <span className="text-xs text-muted-foreground">{selectedIds.size} selected</span>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <CardTitle>Pick Users</CardTitle>
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5">
+                  {selectedIds.size} selected
+                </span>
+              )}
+              {(users?.length ?? 0) > 0 && (
+                <button
+                  onClick={() => setSelectedIds(selectedIds.size === (users?.length ?? 0) ? new Set() : new Set((users ?? []).map((u: any) => u.id)))}
+                  className="text-xs text-primary underline"
+                >
+                  {selectedIds.size === (users?.length ?? 0) ? "Deselect all" : "Select all"}
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="relative mt-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input className="pl-9 h-8 text-sm" placeholder="Search users…" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="max-h-[420px] overflow-y-auto space-y-1">
-            {(users ?? []).map((u: any) => (
-              <label key={u.id} className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-muted cursor-pointer">
-                <Checkbox checked={selectedIds.has(u.id)} onCheckedChange={(v) => {
-                  setSelectedIds((s) => { const n = new Set(s); v ? n.add(u.id) : n.delete(u.id); return n; });
-                }} />
-                <Avatar className="h-6 w-6"><AvatarImage src={u.avatar_url} /><AvatarFallback>{(u.full_name ?? "U")[0]}</AvatarFallback></Avatar>
-                <span className="text-sm truncate flex-1">{u.full_name ?? u.username ?? u.email}</span>
-                <span className="text-xs text-muted-foreground">{u.completed_tasks ?? 0} done</span>
+        <CardContent className="pt-0">
+          <div className="max-h-[480px] overflow-y-auto space-y-0.5 -mx-1">
+            {filteredUsers.map((u: any) => (
+              <label key={u.id} className={cn(
+                "flex items-center gap-2.5 rounded-xl px-3 py-2 cursor-pointer transition-colors",
+                selectedIds.has(u.id) ? "bg-primary/8 border border-primary/20" : "hover:bg-muted/60",
+              )}>
+                <Checkbox
+                  checked={selectedIds.has(u.id)}
+                  onCheckedChange={(v) => {
+                    setSelectedIds((s) => { const n = new Set(s); v ? n.add(u.id) : n.delete(u.id); return n; });
+                  }}
+                />
+                <Avatar className="h-7 w-7 shrink-0">
+                  <AvatarImage src={u.avatar_url} />
+                  <AvatarFallback className="text-[10px] font-bold">{(u.full_name ?? "U")[0]?.toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium truncate">{u.full_name ?? u.username ?? u.email}</div>
+                  {u.email && u.full_name && (
+                    <div className="text-[10px] text-muted-foreground truncate">{u.email}</div>
+                  )}
+                </div>
+                <span className="text-[10px] text-muted-foreground shrink-0">{u.completed_tasks ?? 0} done</span>
               </label>
             ))}
+            {filteredUsers.length === 0 && (
+              <div className="py-8 text-center text-sm text-muted-foreground">No users found</div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1214,6 +1430,243 @@ function PackageForm({ pkg, onSave, onCancel }: { pkg: any; onSave: (p: any) => 
         <div className="flex gap-2 pt-2">
           <Button onClick={save} className="gap-2">
             <Check className="h-4 w-4" /> {pkg.id ? "Save Changes" : "Create Package"}
+          </Button>
+          <Button variant="outline" onClick={onCancel}>Cancel</Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ── Templates Panel ───────────────────────────────── */
+function TemplatesPanel() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
+
+  const { data: templates, isLoading } = useQuery({
+    queryKey: ["task-templates"],
+    queryFn: async () => {
+      const { data } = await supabase.from("task_templates").select("*").order("created_at", { ascending: false });
+      return (data ?? []) as any[];
+    },
+  });
+
+  async function deleteTemplate(id: string) {
+    const { error } = await supabase.from("task_templates").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Template deleted"); qc.invalidateQueries({ queryKey: ["task-templates"] }); }
+  }
+
+  function startEdit(t: any) { setEditing(t); setShowForm(true); }
+  function startCreate() { setEditing(null); setShowForm(true); }
+
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="font-bold text-base">Video Task Templates</h2>
+          <p className="text-sm text-muted-foreground">Save reusable task setups. Apply them in Bulk Assign with one click.</p>
+        </div>
+        <Button onClick={startCreate} className="gap-2 shrink-0">
+          <FilePlus className="h-4 w-4" /> New Template
+        </Button>
+      </div>
+
+      {showForm && (
+        <TemplateForm
+          template={editing}
+          onSave={() => { setShowForm(false); setEditing(null); qc.invalidateQueries({ queryKey: ["task-templates"] }); }}
+          onCancel={() => { setShowForm(false); setEditing(null); }}
+        />
+      )}
+
+      {isLoading ? (
+        <div className="py-8 text-center text-muted-foreground">Loading…</div>
+      ) : !templates?.length ? (
+        <Card className="glass">
+          <CardContent className="py-12 text-center">
+            <div className="h-14 w-14 rounded-2xl bg-muted grid place-items-center mx-auto mb-3">
+              <FileVideo className="h-7 w-7 text-muted-foreground/50" />
+            </div>
+            <p className="text-sm text-muted-foreground">No templates yet. Create your first one to speed up bulk assigning.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {templates.map((t: any) => {
+            const videoCount = Array.isArray(t.video_links) ? t.video_links.length : 0;
+            return (
+              <Card key={t.id} className="glass overflow-hidden">
+                <div className="h-1 w-full bg-gradient-to-r from-violet-500 to-indigo-500" />
+                <CardContent className="pt-4 pb-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-sm truncate">{t.name}</h3>
+                      {t.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{t.description}</p>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">₨{Number(t.reward).toFixed(0)}</div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-400 capitalize">
+                      {t.task_type}
+                    </span>
+                    {videoCount > 0 && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400">
+                        <FileVideo className="h-2.5 w-2.5 inline mr-0.5" />
+                        {videoCount} video{videoCount !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {t.attachment_url && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                        📎 Attachment
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 gap-1 h-8 text-xs" onClick={() => startEdit(t)}>
+                      <Pencil className="h-3 w-3" /> Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
+                      onClick={() => deleteTemplate(t.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateForm({ template, onSave, onCancel }: { template: any | null; onSave: () => void; onCancel: () => void }) {
+  const [name, setName] = useState(template?.name ?? "");
+  const [description, setDescription] = useState(template?.description ?? "");
+  const [taskType, setTaskType] = useState(template?.task_type ?? "video");
+  const [reward, setReward] = useState(String(template?.reward ?? 80));
+  const [videoLinks, setVideoLinks] = useState<string[]>(Array.isArray(template?.video_links) ? template.video_links : Array(10).fill(""));
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(template?.attachment_url ?? null);
+  const [attachmentName, setAttachmentName] = useState(template?.attachment_name ?? "");
+  const [saving, setSaving] = useState(false);
+
+  function setVideoLink(i: number, val: string) {
+    setVideoLinks((prev) => { const next = [...prev]; next[i] = val; return next; });
+  }
+
+  async function save() {
+    if (!name.trim()) return toast.error("Template name required");
+    setSaving(true);
+    const links = videoLinks.map((s) => s.trim()).filter(Boolean);
+    const payload = {
+      name: name.trim(), description: description.trim() || null,
+      task_type: taskType, reward: parseFloat(reward) || 80,
+      video_links: links,
+      attachment_url: attachmentUrl || null,
+      attachment_name: attachmentName || null,
+    };
+    let error: any;
+    if (template?.id) {
+      ({ error } = await supabase.from("task_templates").update(payload).eq("id", template.id));
+    } else {
+      ({ error } = await supabase.from("task_templates").insert(payload));
+    }
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else { toast.success(template?.id ? "Template updated ✓" : "Template created ✓"); onSave(); }
+  }
+
+  return (
+    <Card className="glass border-primary/30 shadow-lg">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <FileVideo className="h-4 w-4 text-violet-500" />
+          {template?.id ? "Edit Template" : "New Template"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs font-semibold">Template Name *</Label>
+            <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. YouTube Promo Pack" />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold">Task Type</Label>
+            <select value={taskType} onChange={(e) => setTaskType(e.target.value)}
+              className="w-full mt-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="video">Video</option>
+              <option value="general">General</option>
+              <option value="file">File</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs font-semibold">Description</Label>
+            <Textarea className="mt-1 resize-none text-sm" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold">Reward (PKR)</Label>
+            <Input type="number" className="mt-1" value={reward} onChange={(e) => setReward(e.target.value)} />
+          </div>
+        </div>
+
+        {taskType === "video" && (
+          <div>
+            <Label className="text-xs font-semibold">Video Links (up to 10)</Label>
+            <p className="text-[11px] text-muted-foreground mb-2 mt-0.5">Enter YouTube URLs one at a time. Leave blank to skip.</p>
+            <div className="space-y-2">
+              {Array.from({ length: 10 }, (_, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-muted-foreground w-5 text-right shrink-0">{i + 1}</span>
+                  <Input
+                    value={videoLinks[i] ?? ""}
+                    onChange={(e) => setVideoLink(i, e.target.value)}
+                    placeholder={`Video ${i + 1} URL (optional)`}
+                    className="text-sm h-8 font-mono"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {taskType !== "video" && (
+          <div>
+            <Label className="text-xs font-semibold">Attachment File (optional)</Label>
+            <p className="text-[11px] text-muted-foreground mb-2 mt-0.5">File users need to download to complete this task.</p>
+            <div className="flex items-center gap-2">
+              <Input
+                value={attachmentUrl ?? ""}
+                onChange={(e) => setAttachmentUrl(e.target.value || null)}
+                placeholder="https://… or leave blank"
+                className="text-sm flex-1"
+              />
+            </div>
+            {attachmentUrl && (
+              <div className="mt-2">
+                <Label className="text-xs font-semibold">Attachment Filename</Label>
+                <Input className="mt-1 text-sm" value={attachmentName} onChange={(e) => setAttachmentName(e.target.value)} placeholder="e.g. instructions.pdf" />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <Button onClick={save} disabled={saving} className="gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+            {template?.id ? "Save Changes" : "Create Template"}
           </Button>
           <Button variant="outline" onClick={onCancel}>Cancel</Button>
         </div>

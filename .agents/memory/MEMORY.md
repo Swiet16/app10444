@@ -1,0 +1,3 @@
+- [Task features architecture](task-features.md) — tasks table has attachment_url/name/due_date added via migration; templates table for super admin reuse; email on assign via Brevo /api/send-task-email.
+- [Video task flow](video-task-flow.md) — after all videos watched → collapse players to completed rows (no replay), show screenshot upload section; SecureVideoPlayer has onComplete prop; mark_video_watched RPC exists.
+- [Super admin BulkAssign pattern](bulk-assign-pattern.md) — bulk_assign_task RPC creates tasks then a separate update patches due_date + attachment on newly created rows by matching title + assigned_to + recency.

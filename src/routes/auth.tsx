@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, ShieldCheck, Banknote, Smartphone } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, Banknote, Smartphone, Mail } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -179,6 +179,14 @@ function AuthPage() {
               </form>
             ) : (
               <form onSubmit={handleSignUp} className="space-y-4">
+                {/* Personal email notice */}
+                <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5">
+                  <Mail className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    <strong>Please use your personal email.</strong> We will send your tasks, activation keys, and work details to this address. Temporary or fake emails will not work.
+                  </p>
+                </div>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="su-name" className="text-gray-700 text-sm font-medium">Full Name</Label>
                   <Input
@@ -192,7 +200,7 @@ function AuthPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="su-email" className="text-gray-700 text-sm font-medium">Email Address</Label>
+                  <Label htmlFor="su-email" className="text-gray-700 text-sm font-medium">Personal Email Address</Label>
                   <Input
                     id="su-email"
                     type="email"
@@ -200,7 +208,7 @@ function AuthPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
+                    placeholder="your.real@email.com"
                     className="border-gray-300 focus:border-[#004B32] focus:ring-[#004B32] h-11 text-gray-900"
                   />
                 </div>
